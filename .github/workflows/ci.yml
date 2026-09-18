@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Formatting
+        run: test -z "$(gofmt -l .)"
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test with the race detector
+        run: go test -race -cover ./...
+
+      - name: Build
+        run: go build -trimpath -o /tmp/loadgun ./cmd/loadgun
+
+      - name: Load a real server end to end
+        run: |
+          python3 -m http.server 8099 --directory . &
+          sleep 1
+          /tmp/loadgun -n 100 -c 10 --keepalive http://127.0.0.1:8099/
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the image
+        run: docker build -t loadgun:ci .
+      - name: Run it
+        run: docker run --rm loadgun:ci --version
