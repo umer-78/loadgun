@@ -1,0 +1,574 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>loadgun — HTTP Load Testing Demo</title>
+  <meta name="description" content="Interactive demo of loadgun: configure a load test, simulate responses, and see nearest-rank percentiles plus a latency histogram.">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='23' font-size='16' text-anchor='middle' fill='white' font-family='monospace'>LG</text></svg>">
+  <style>
+    :root {
+      --bg: #f6f7f9; --surface: #ffffff; --surface-2: #eef0f4; --border: #dde1e8;
+      --text: #16181d; --muted: #5d6573; --accent: #2563eb; --accent-ink: #ffffff;
+      --good: #15803d; --bad: #b91c1c; --warn: #d97706;
+      --radius: 12px;
+      --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 4px 16px rgb(16 24 40 / 0.05);
+      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0e1116; --surface: #161a21; --surface-2: #1d222b; --border: #2a303b;
+        --text: #e8eaee; --muted: #9aa3b2; --accent: #60a5fa; --accent-ink: #0b1220;
+        --good: #4ade80; --bad: #f87171; --warn: #fbbf24;
+        --shadow: none; color-scheme: dark;
+      }
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; }
+    body {
+      font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); }
+    .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
+    header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+    header.top h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
+    header.top p { margin: 2px 0 0; color: var(--muted); }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); min-width: 0; margin-bottom: 16px; }
+    .card h2 { font-size: 15px; margin: 0 0 12px; }
+    .grid { display: grid; gap: 16px; }
+    .grid.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+    input, select, textarea, button { font: inherit; color: inherit; }
+    input, select {
+      width: 100%; padding: 9px 11px; border-radius: 9px;
+      border: 1px solid var(--border); background: var(--surface-2); outline: none; min-width: 0;
+    }
+    input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+    button {
+      cursor: pointer; border: 1px solid var(--border); background: var(--surface-2);
+      padding: 9px 14px; border-radius: 9px; font-weight: 600;
+    }
+    button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+    .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+    .row > * { flex: 1 1 140px; }
+    .row > button { flex: 0 0 auto; }
+    .muted { color: var(--muted); }
+    .mono { font-family: var(--mono); }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0; }
+    .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
+    .stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+    .stat .v { font-family: var(--mono); font-size: 18px; font-weight: 700; margin-top: 2px; }
+    .stat .v.bad { color: var(--bad); }
+    .stat .v.good { color: var(--good); }
+    .pcts { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-top: 12px; }
+    .pct { text-align: center; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; }
+    .pct .k { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .pct .v { font-family: var(--mono); font-size: 17px; font-weight: 700; margin-top: 2px; }
+    .pct.hot { border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); }
+    .pct.hot .v { color: var(--bad); }
+    canvas { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
+    .result-box {
+      font-family: var(--mono); font-size: 13px; padding: 12px; background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 8px; margin-top: 12px; white-space: pre-wrap;
+      word-break: break-all; max-height: 320px; overflow: auto;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+    .table-wrap { overflow-x: auto; }
+    footer { margin-top: 32px; color: var(--muted); font-size: 13px; text-align: center; }
+    code { font-family: var(--mono); font-size: 0.92em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
+    .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+    .presets button { font-size: 13px; padding: 5px 10px; font-weight: 500; }
+    .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
+    .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top">
+      <div>
+        <h1>loadgun — HTTP Load Testing</h1>
+        <p>Configure RPS, duration and concurrency; the simulator runs a worker-pool model and reports nearest-rank percentiles on a canvas histogram.</p>
+      </div>
+      <a href="https://github.com/umer-78/loadgun">Source on GitHub</a>
+    </header>
+
+    <section class="card">
+      <h2>Configure the run</h2>
+      <div class="row">
+        <div>
+          <label for="url">URL</label>
+          <input id="url" class="mono" value="http://localhost:8080/health" spellcheck="false">
+        </div>
+        <div>
+          <label for="mode">Limit mode</label>
+          <select id="mode">
+            <option value="requests">Fixed request count (-n)</option>
+            <option value="duration">Fixed duration (-d)</option>
+          </select>
+        </div>
+        <div>
+          <label for="requests" id="requestsLabel">Requests (-n)</label>
+          <input id="requests" type="number" min="1" max="20000" value="500">
+        </div>
+        <div>
+          <label for="durationSec" id="durationLabel" hidden>Duration seconds (-d)</label>
+          <input id="durationSec" type="number" min="1" max="120" value="5" hidden>
+        </div>
+        <div>
+          <label for="concurrency">Concurrency (-c)</label>
+          <input id="concurrency" type="number" min="1" max="500" value="25">
+        </div>
+        <div>
+          <label for="rate">Rate cap RPS (--rate, 0 = none)</label>
+          <input id="rate" type="number" min="0" max="100000" value="0">
+        </div>
+        <div>
+          <label for="baseMs">Base latency ms</label>
+          <input id="baseMs" type="number" min="1" max="5000" value="5">
+        </div>
+        <div>
+          <label for="failPct">Server error %</label>
+          <input id="failPct" type="number" min="0" max="100" value="0" step="0.5">
+        </div>
+        <div style="flex:0 0 auto">
+          <button class="primary" id="runBtn" type="button">Run load test</button>
+        </div>
+      </div>
+      <div class="presets">
+        <button type="button" data-run='{"requests":500,"concurrency":25,"rate":0,"baseMs":5,"failPct":0}'>500 / 25 workers</button>
+        <button type="button" data-run='{"requests":200,"concurrency":20,"rate":100,"baseMs":8,"failPct":0}'>rate-limited 100/s</button>
+        <button type="button" data-run='{"requests":200,"concurrency":20,"rate":0,"baseMs":12,"failPct":8.5}'>flaky (8.5% fail)</button>
+        <button type="button" data-run='{"requests":1000,"concurrency":50,"rate":0,"baseMs":3,"failPct":0}'>high concurrency 50</button>
+      </div>
+      <p class="muted" style="font-size:13px;margin:10px 0 0">
+        This page <b>simulates</b> a target: latency ≈ base + queueing under concurrency + noise.
+        Percentiles use the same <b>nearest-rank</b> rule as the Go code — a p95 is a latency that actually happened.
+        Failures (timeouts / non-2xx) are excluded from the latency distribution, matching <code>internal/report</code>.
+      </p>
+    </section>
+
+    <section class="card" aria-live="polite">
+      <h2>Results</h2>
+      <div class="stats">
+        <div class="stat"><div class="k">Requests</div><div class="v" id="statTotal">—</div></div>
+        <div class="stat"><div class="k">Succeeded</div><div class="v good" id="statOk">—</div></div>
+        <div class="stat"><div class="k">Failed</div><div class="v" id="statFail">—</div></div>
+        <div class="stat"><div class="k">Throughput</div><div class="v" id="statRps">—</div></div>
+        <div class="stat"><div class="k">Received</div><div class="v" id="statBytes">—</div></div>
+      </div>
+
+      <div class="pcts">
+        <div class="pct"><div class="k">min</div><div class="v" id="pMin">—</div></div>
+        <div class="pct"><div class="k">mean</div><div class="v" id="pMean">—</div></div>
+        <div class="pct"><div class="k">p50</div><div class="v" id="p50">—</div></div>
+        <div class="pct"><div class="k">p90</div><div class="v" id="p90">—</div></div>
+        <div class="pct hot"><div class="k">p95</div><div class="v" id="p95">—</div></div>
+        <div class="pct hot"><div class="k">p99</div><div class="v" id="p99">—</div></div>
+        <div class="pct"><div class="k">max</div><div class="v" id="pMax">—</div></div>
+      </div>
+
+      <h2 style="margin-top:18px">Latency distribution</h2>
+      <canvas id="hist" width="900" height="320" role="img" aria-label="Latency histogram"></canvas>
+      <div class="legend">
+        <span><i style="background:var(--accent)"></i>bucket count</span>
+        <span><i style="background:var(--bad)"></i>p95 marker</span>
+        <span>10 equal-width buckets, min→max (same as <code>Histogram()</code>)</span>
+      </div>
+
+      <div class="result-box" id="reportOut">$ loadgun -n 500 -c 25 http://localhost:8080/health</div>
+    </section>
+
+    <div class="grid two">
+      <section class="card">
+        <h2>Four decisions that decide whether the numbers mean anything</h2>
+        <ul class="muted" style="margin:0;padding-left:20px">
+          <li><b>Percentiles are nearest-rank, not interpolated.</b> p95 is a latency a request actually experienced.</li>
+          <li><b>A failed request has no latency.</b> Timeouts stay out of the distribution.</li>
+          <li><b>Duration stops new requests; it does not cut in-flight ones.</b></li>
+          <li><b>The body is drained before the clock stops.</b> keepalive measures the server, not the handshake.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2>Status codes</h2>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Code</th><th>Count</th></tr></thead>
+            <tbody id="statusBody"><tr><td colspan="2" class="muted">Run a test</td></tr></tbody>
+          </table>
+        </div>
+        <p class="muted" style="margin-bottom:0">Exit code is 1 if anything failed — use it as a one-line CI gate.</p>
+      </section>
+    </div>
+
+    <footer>48 tests · Go · single static binary · race-clean · Built by <a href="https://github.com/umer-78">Umer Hashmi</a></footer>
+  </div>
+
+  <script>
+    'use strict';
+    const $ = id => document.getElementById(id);
+
+    // Deterministic-ish PRNG so runs are reproducible with the same inputs visually varied by seed
+    function mulberry32(a) {
+      return function() {
+        let t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    function gaussian(rng) {
+      // Box-Muller
+      let u = 0, v = 0;
+      while (u === 0) u = rng();
+      while (v === 0) v = rng();
+      return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+    }
+
+    // Nearest-rank percentile (matches Percentile() in stats.go)
+    function percentile(sorted, p) {
+      if (sorted.length === 0) return 0;
+      if (p <= 0) return sorted[0];
+      if (p >= 100) return sorted[sorted.length - 1];
+      let rank = Math.ceil(p / 100 * sorted.length);
+      if (rank < 1) rank = 1;
+      return sorted[rank - 1];
+    }
+
+    // Equal-width histogram between lo and hi (matches Histogram() in stats.go)
+    function histogram(sorted, buckets) {
+      if (sorted.length === 0 || buckets < 1) return [];
+      const lo = sorted[0], hi = sorted[sorted.length - 1];
+      if (hi === lo) return [{ upper: hi, count: sorted.length }];
+      const width = (hi - lo) / buckets;
+      const out = [];
+      for (let i = 0; i < buckets; i++) {
+        out.push({ upper: lo + width * (i + 1), count: 0 });
+      }
+      out[buckets - 1].upper = hi;
+      let index = 0;
+      for (const value of sorted) {
+        while (index < buckets - 1 && value > out[index].upper) index++;
+        out[index].count++;
+      }
+      return out;
+    }
+
+    function fmtMs(ms) {
+      if (ms >= 1000) return (ms / 1000).toFixed(2) + 's';
+      if (ms >= 10) return ms.toFixed(1) + 'ms';
+      return ms.toFixed(2) + 'ms';
+    }
+
+    function humanBytes(n) {
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function simulate(cfg) {
+      const rng = mulberry32(cfg.seed || (Date.now() & 0xffffffff));
+      const c = Math.max(1, cfg.concurrency);
+      const base = Math.max(0.5, cfg.baseMs);
+      const rate = Math.max(0, cfg.rate);
+      const failPct = Math.min(100, Math.max(0, cfg.failPct));
+
+      let total;
+      if (cfg.mode === 'duration') {
+        // duration * rps if rate set, else free-run estimate from concurrency & latency
+        const rpsGuess = rate > 0 ? rate : Math.round(1000 / base * c);
+        total = Math.max(10, Math.round(rpsGuess * cfg.durationSec));
+      } else {
+        total = Math.max(1, cfg.requests);
+      }
+      // Cap for browser comfort
+      total = Math.min(total, 20000);
+
+      const statuses = {};
+      const latencies = [];
+      let failed = 0, succeeded = 0, bytes = 0;
+
+      // Queueing model: utilization ρ = demand / capacity.
+      // capacity ≈ c workers; demand grows with offered rate.
+      const offered = rate > 0 ? rate : (1000 / base) * c * 1.0;
+      const capacity = (1000 / base) * c;
+      const rho = Math.min(0.98, offered / capacity);
+      // M/M/c-ish inflation factor for mean waiting (very rough but monotonic in ρ and c)
+      const queueFactor = rho < 0.7 ? 1 + rho * 0.4
+                        : rho < 0.9 ? 1 + 0.28 + (rho - 0.7) * 2.5
+                        : 1 + 0.78 + (rho - 0.9) * 12;
+
+      for (let i = 0; i < total; i++) {
+        const isFail = rng() * 100 < failPct;
+        // lognormal-ish latency: base * queue * exp(noise)
+        const noise = Math.exp(gaussian(rng) * 0.35 - 0.35 * 0.35);
+        let lat = base * queueFactor * noise;
+        // occasional slow tail
+        if (rng() < 0.02) lat *= 3 + rng() * 5;
+        lat = Math.max(0.1, lat);
+
+        if (isFail) {
+          failed++;
+          // status 503 mostly, some 500; still has a latency but excluded from distribution
+          const code = rng() < 0.7 ? 503 : 500;
+          statuses[code] = (statuses[code] || 0) + 1;
+        } else {
+          succeeded++;
+          statuses[200] = (statuses[200] || 0) + 1;
+          latencies.push(lat);
+          bytes += 200 + Math.floor(rng() * 800);
+        }
+      }
+
+      // Elapsed: max of (total/offered serialised by rate, latencies under concurrency)
+      const byRate = rate > 0 ? total / rate : 0;
+      const byWorkers = (latencies.reduce((a, b) => a + b, 0) + failed * base) / 1000 / c;
+      const elapsed = Math.max(0.001, Math.max(byRate, byWorkers));
+
+      const sorted = latencies.slice().sort((a, b) => a - b);
+      const sum = sorted.reduce((a, b) => a + b, 0);
+      return {
+        total, succeeded, failed, statuses, bytes, elapsed,
+        throughput: total / elapsed,
+        latency: {
+          min: sorted[0] || 0,
+          max: sorted[sorted.length - 1] || 0,
+          mean: sorted.length ? sum / sorted.length : 0,
+          p50: percentile(sorted, 50),
+          p90: percentile(sorted, 90),
+          p95: percentile(sorted, 95),
+          p99: percentile(sorted, 99)
+        },
+        histogram: histogram(sorted, 10),
+        sorted
+      };
+    }
+
+    function drawHistogram(canvas, result, p95) {
+      const dpr = window.devicePixelRatio || 1;
+      const cssW = canvas.clientWidth || 900;
+      const cssH = 320;
+      canvas.width = Math.round(cssW * dpr);
+      canvas.height = Math.round(cssH * dpr);
+      canvas.style.height = cssH + 'px';
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      const W = cssW, H = cssH;
+      const pad = { l: 48, r: 16, t: 16, b: 48 };
+      ctx.clearRect(0, 0, W, H);
+
+      const bars = result.histogram;
+      if (!bars.length) {
+        ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--muted');
+        ctx.font = '14px system-ui';
+        ctx.fillText('No successful responses to plot.', 20, H / 2);
+        return;
+      }
+
+      const styles = getComputedStyle(document.documentElement);
+      const accent = styles.getPropertyValue('--accent').trim() || '#2563eb';
+      const bad = styles.getPropertyValue('--bad').trim() || '#b91c1c';
+      const muted = styles.getPropertyValue('--muted').trim() || '#5d6573';
+      const border = styles.getPropertyValue('--border').trim() || '#dde1e8';
+      const text = styles.getPropertyValue('--text').trim() || '#16181d';
+
+      const maxCount = Math.max(...bars.map(b => b.count), 1);
+      const plotW = W - pad.l - pad.r;
+      const plotH = H - pad.t - pad.b;
+      const barW = plotW / bars.length;
+
+      // axes
+      ctx.strokeStyle = border;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(pad.l, pad.t);
+      ctx.lineTo(pad.l, pad.t + plotH);
+      ctx.lineTo(pad.l + plotW, pad.t + plotH);
+      ctx.stroke();
+
+      // bars
+      bars.forEach((b, i) => {
+        const h = (b.count / maxCount) * (plotH - 8);
+        const x = pad.l + i * barW + 3;
+        const y = pad.t + plotH - h;
+        ctx.fillStyle = accent;
+        ctx.globalAlpha = 0.85;
+        ctx.fillRect(x, y, barW - 6, h);
+        ctx.globalAlpha = 1;
+
+        // count label
+        if (b.count > 0) {
+          ctx.fillStyle = text;
+          ctx.font = '11px ui-monospace, monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(String(b.count), x + (barW - 6) / 2, y - 4);
+        }
+        // upper label every other bucket if cramped
+        if (bars.length <= 10 || i % 2 === 0) {
+          ctx.save();
+          ctx.translate(pad.l + i * barW + barW / 2, pad.t + plotH + 14);
+          ctx.fillStyle = muted;
+          ctx.font = '10px ui-monospace, monospace';
+          ctx.textAlign = 'right';
+          ctx.rotate(-Math.PI / 5);
+          ctx.fillText('≤' + fmtMs(b.upper), 0, 0);
+          ctx.restore();
+        }
+      });
+
+      // p95 marker: find bucket containing p95
+      if (p95 != null && result.latency.max !== result.latency.min) {
+        const lo = result.latency.min, hi = result.latency.max;
+        const frac = (p95 - lo) / (hi - lo);
+        const x = pad.l + Math.min(1, Math.max(0, frac)) * plotW;
+        ctx.strokeStyle = bad;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(x, pad.t);
+        ctx.lineTo(x, pad.t + plotH);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = bad;
+        ctx.font = 'bold 12px system-ui';
+        ctx.textAlign = x > W - 80 ? 'right' : 'left';
+        ctx.fillText('p95 ' + fmtMs(p95), x + (x > W - 80 ? -6 : 6), pad.t + 14);
+      }
+
+      // axis titles
+      ctx.fillStyle = muted;
+      ctx.font = '12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('latency', pad.l + plotW / 2, H - 8);
+      ctx.save();
+      ctx.translate(14, pad.t + plotH / 2);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('count', 0, 0);
+      ctx.restore();
+    }
+
+    function renderReport(r, cfg) {
+      window.__lastResult = r;
+      const lat = r.latency;
+      $('statTotal').textContent = r.total;
+      $('statOk').textContent = `${r.succeeded} (${(100 * r.succeeded / r.total).toFixed(1)}%)`;
+      $('statFail').textContent = r.failed;
+      $('statFail').className = 'v ' + (r.failed ? 'bad' : 'good');
+      $('statRps').textContent = r.throughput.toFixed(1) + '/s';
+      $('statBytes').textContent = humanBytes(r.bytes);
+
+      $('pMin').textContent = fmtMs(lat.min);
+      $('pMean').textContent = fmtMs(lat.mean);
+      $('p50').textContent = fmtMs(lat.p50);
+      $('p90').textContent = fmtMs(lat.p90);
+      $('p95').textContent = fmtMs(lat.p95);
+      $('p99').textContent = fmtMs(lat.p99);
+      $('pMax').textContent = fmtMs(lat.max);
+
+      const statusRows = Object.keys(r.statuses).sort().map(code =>
+        `<tr><td class="mono">${code}</td><td class="mono">${r.statuses[code]}</td></tr>`
+      ).join('');
+      $('statusBody').innerHTML = statusRows || '<tr><td colspan="2" class="muted">none</td></tr>';
+
+      // text report like internal/report Text()
+      let out = '';
+      out += `GET ${cfg.url} — ${cfg.concurrency} workers, ${r.total} requests\n`;
+      out += `Requests    ${r.total} in ${r.elapsed.toFixed(3)}s (${r.throughput.toFixed(1)}/s)\n`;
+      out += `Succeeded   ${r.succeeded} (${(100 * r.succeeded / r.total).toFixed(1)}%)\n`;
+      out += `Failed      ${r.failed}\n`;
+      out += `Received    ${humanBytes(r.bytes)}\n\n`;
+      out += `Latency     min ${fmtMs(lat.min)}   mean ${fmtMs(lat.mean)}   max ${fmtMs(lat.max)}\n`;
+      out += `            p50 ${fmtMs(lat.p50)}   p90 ${fmtMs(lat.p90)}   p95 ${fmtMs(lat.p95)}   p99 ${fmtMs(lat.p99)}\n\n`;
+      if (r.histogram.length) {
+        out += 'Distribution\n';
+        const widest = Math.max(...r.histogram.map(b => b.count), 1);
+        for (const b of r.histogram) {
+          const bar = Math.round(b.count * 40 / widest);
+          out += `  <= ${fmtMs(b.upper).padEnd(9)} ${String(b.count).padStart(5)}  ${'#'.repeat(bar)}\n`;
+        }
+        out += '\n';
+      }
+      out += 'Status codes\n';
+      for (const code of Object.keys(r.statuses).sort()) {
+        out += `  ${code}  ${r.statuses[code]}\n`;
+      }
+      if (r.failed) out += `\n$ echo $?\n1\n`;
+      else out += `\n$ echo $?\n0\n`;
+      $('reportOut').textContent = out;
+
+      drawHistogram($('hist'), r, lat.p95);
+    }
+
+    function readCfg() {
+      const mode = $('mode').value;
+      return {
+        url: $('url').value.trim() || 'http://localhost:8080/',
+        mode,
+        requests: +$('requests').value || 500,
+        durationSec: +$('durationSec').value || 5,
+        concurrency: +$('concurrency').value || 10,
+        rate: +$('rate').value || 0,
+        baseMs: +$('baseMs').value || 5,
+        failPct: +$('failPct').value || 0
+      };
+    }
+
+    function run() {
+      const cfg = readCfg();
+      $('runBtn').disabled = true;
+      $('runBtn').textContent = 'Running…';
+      // yield so the button state paints
+      setTimeout(() => {
+        try {
+          const result = simulate(cfg);
+          renderReport(result, cfg);
+        } finally {
+          $('runBtn').disabled = false;
+          $('runBtn').textContent = 'Run load test';
+        }
+      }, 30);
+    }
+
+    function syncMode() {
+      const duration = $('mode').value === 'duration';
+      $('requests').hidden = duration;
+      $('requestsLabel').hidden = duration;
+      $('durationSec').hidden = !duration;
+      $('durationLabel').hidden = !duration;
+    }
+
+    $('mode').addEventListener('change', syncMode);
+    $('runBtn').addEventListener('click', run);
+    document.querySelectorAll('[data-run]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        try {
+          const p = JSON.parse(btn.dataset.run);
+          if (p.requests != null) $('requests').value = p.requests;
+          if (p.concurrency != null) $('concurrency').value = p.concurrency;
+          if (p.rate != null) $('rate').value = p.rate;
+          if (p.baseMs != null) $('baseMs').value = p.baseMs;
+          if (p.failPct != null) $('failPct').value = p.failPct;
+          $('mode').value = 'requests';
+          syncMode();
+          run();
+        } catch (e) { /* ignore malformed preset */ }
+      });
+    });
+    window.addEventListener('resize', () => {
+      // redraw last histogram if we have one
+      if (window.__lastResult) drawHistogram($('hist'), window.__lastResult, window.__lastResult.latency.p95);
+    });
+
+    syncMode();
+    // initial run
+    const cfg0 = readCfg();
+    renderReport(simulate(cfg0), cfg0);
+  </script>
+</body>
+</html>
