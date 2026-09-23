@@ -5,98 +5,214 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>loadgun — HTTP Load Testing Demo</title>
   <meta name="description" content="Interactive demo of loadgun: configure a load test, simulate responses, and see nearest-rank percentiles plus a latency histogram.">
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%232563eb'/><text x='16' y='23' font-size='16' text-anchor='middle' fill='white' font-family='monospace'>LG</text></svg>">
+  <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%232563eb'/><stop offset='1' stop-color='%237c3aed'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><text x='16' y='22' font-size='14' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'>LG</text></svg>">
   <style>
     :root {
-      --bg: #f6f7f9; --surface: #ffffff; --surface-2: #eef0f4; --border: #dde1e8;
-      --text: #16181d; --muted: #5d6573; --accent: #2563eb; --accent-ink: #ffffff;
-      --good: #15803d; --bad: #b91c1c; --warn: #d97706;
-      --radius: 12px;
-      --shadow: 0 1px 2px rgb(16 24 40 / 0.06), 0 4px 16px rgb(16 24 40 / 0.05);
-      --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      --bg: #fafbfc; --bg-elevated: #ffffff; --surface: #ffffff; --surface-2: #f3f4f6; --surface-3: #e9eaee;
+      --border: #e2e4e9; --border-strong: #d0d3da; --text: #0f1216; --text-secondary: #3d4450; --muted: #6b7280;
+      --accent: #2563eb; --accent-hover: #1d4ed8; --accent-soft: #eff6ff; --accent-glow: rgb(37 99 235 / 0.15);
+      --good: #059669; --good-soft: #ecfdf5; --bad: #dc2626; --bad-soft: #fef2f2; --warn: #d97706; --warn-soft: #fffbeb;
+      --radius-sm: 8px; --radius: 14px; --radius-lg: 20px; --radius-xl: 28px;
+      --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.04);
+      --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.06), 0 4px 12px rgb(0 0 0 / 0.04);
+      --shadow-md: 0 4px 6px rgb(0 0 0 / 0.04), 0 10px 24px rgb(0 0 0 / 0.06);
+      --shadow-lg: 0 8px 16px rgb(0 0 0 / 0.06), 0 24px 48px rgb(0 0 0 / 0.08);
+      --shadow-glow: 0 0 0 3px var(--accent-glow);
+      --font: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+      --mono: "SF Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, monospace;
+      --ease: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
       color-scheme: light;
     }
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #0e1116; --surface: #161a21; --surface-2: #1d222b; --border: #2a303b;
-        --text: #e8eaee; --muted: #9aa3b2; --accent: #60a5fa; --accent-ink: #0b1220;
-        --good: #4ade80; --bad: #f87171; --warn: #fbbf24;
-        --shadow: none; color-scheme: dark;
+        --bg: #0a0c10; --bg-elevated: #12151b; --surface: #161a22; --surface-2: #1e232d; --surface-3: #272d39;
+        --border: #2a3040; --border-strong: #3a4155; --text: #f0f2f5; --text-secondary: #c4c9d4; --muted: #8b92a5;
+        --accent: #3b82f6; --accent-hover: #60a5fa; --accent-soft: rgb(59 130 246 / 0.12); --accent-glow: rgb(59 130 246 / 0.25);
+        --good: #34d399; --good-soft: rgb(52 211 153 / 0.12); --bad: #f87171; --bad-soft: rgb(248 113 113 / 0.12);
+        --warn: #fbbf24; --warn-soft: rgb(251 191 36 / 0.12);
+        --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.2);
+        --shadow-md: 0 4px 6px rgb(0 0 0 / 0.25), 0 10px 24px rgb(0 0 0 / 0.3);
+        --shadow-lg: 0 8px 16px rgb(0 0 0 / 0.3), 0 24px 48px rgb(0 0 0 / 0.35);
+        color-scheme: dark;
       }
     }
-    * { box-sizing: border-box; }
-    html, body { margin: 0; }
+    *, *::before, *::after { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    html { scroll-behavior: smooth; }
+    html, body { margin: 0; padding: 0; }
     body {
-      font: 15px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-      background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased;
+      font-family: var(--font); font-size: 15.5px; line-height: 1.6;
+      background: var(--bg); color: var(--text);
+      -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
+      font-feature-settings: "cv02", "cv03", "cv04", "cv11"; min-height: 100vh;
     }
-    a { color: var(--accent); }
-    .wrap { max-width: 1000px; margin: 0 auto; padding: 24px 16px 48px; }
-    header.top { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
-    header.top h1 { font-size: 22px; margin: 0; letter-spacing: -0.01em; }
-    header.top p { margin: 2px 0 0; color: var(--muted); }
-    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); min-width: 0; margin-bottom: 16px; }
-    .card h2 { font-size: 15px; margin: 0 0 12px; }
-    .grid { display: grid; gap: 16px; }
-    .grid.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-    label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-    input, select, textarea, button { font: inherit; color: inherit; }
-    input, select {
-      width: 100%; padding: 9px 11px; border-radius: 9px;
-      border: 1px solid var(--border); background: var(--surface-2); outline: none; min-width: 0;
+    a { color: var(--accent); text-decoration: none; transition: color 0.2s var(--ease); }
+    a:hover { color: var(--accent-hover); }
+    code, .mono { font-family: var(--mono); font-size: 0.9em; }
+    ::selection { background: var(--accent-soft); color: var(--text); }
+    body::before {
+      content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+      background:
+        radial-gradient(ellipse 80% 50% at 20% -10%, var(--accent-glow), transparent 50%),
+        radial-gradient(ellipse 60% 40% at 80% 110%, var(--accent-glow), transparent 50%),
+        var(--bg);
     }
-    input:focus-visible, button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
-    button {
-      cursor: pointer; border: 1px solid var(--border); background: var(--surface-2);
-      padding: 9px 14px; border-radius: 9px; font-weight: 600;
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+    header.top {
+      display: flex; align-items: center; justify-content: space-between; gap: 16px;
+      padding: 20px 0; margin-bottom: 28px; flex-wrap: wrap;
+      border-bottom: 1px solid var(--border);
+      animation: fadeDown 0.6s var(--ease) both;
     }
-    button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
-    .row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+    header.top .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
+    header.top .icon {
+      width: 44px; height: 44px; border-radius: 12px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 60%, #8b5cf6));
+      display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 18px;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+    header.top h1 { font-size: 22px; margin: 0; letter-spacing: -0.02em; font-weight: 700; }
+    header.top .sub { margin: 2px 0 0; color: var(--muted); font-size: 14px; }
+    header.top .actions { display: flex; gap: 8px; flex-shrink: 0; }
+    button, .btn { font: inherit; cursor: pointer; border: none; outline: none; transition: all 0.25s var(--ease); }
+    .btn, button:not(.linkish) {
+      display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      padding: 10px 18px; border-radius: 10px; font-weight: 600; font-size: 14px;
+      background: var(--surface-2); color: var(--text);
+      border: 1px solid var(--border); box-shadow: var(--shadow-xs);
+    }
+    .btn:hover, button:not(.linkish):hover {
+      background: var(--surface-3); border-color: var(--border-strong);
+      transform: translateY(-1px); box-shadow: var(--shadow-sm);
+    }
+    .btn:active, button:not(.linkish):active { transform: translateY(0) scale(0.98); }
+    .btn.primary, button.primary {
+      background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 80%, #7c3aed));
+      color: #fff; border-color: transparent;
+      box-shadow: 0 2px 8px var(--accent-glow), inset 0 1px 0 rgb(255 255 255 / 0.15);
+    }
+    .btn.primary:hover, button.primary:hover {
+      filter: brightness(1.08);
+      box-shadow: 0 4px 16px var(--accent-glow), inset 0 1px 0 rgb(255 255 255 / 0.2);
+      transform: translateY(-1px);
+    }
+    button:disabled { opacity: 0.6; cursor: wait; transform: none !important; }
+    button:focus-visible, .btn:focus-visible, a:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+    .card {
+      background: color-mix(in srgb, var(--surface) 85%, transparent);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--border); border-radius: var(--radius-lg);
+      padding: 24px; box-shadow: var(--shadow-sm); margin-bottom: 20px; min-width: 0;
+      transition: box-shadow 0.3s var(--ease), transform 0.3s var(--ease), border-color 0.3s var(--ease);
+      animation: fadeUp 0.5s var(--ease) both;
+    }
+    .card.d1 { animation-delay: 0.05s; } .card.d2 { animation-delay: 0.1s; }
+    .card.d3 { animation-delay: 0.15s; } .card.d4 { animation-delay: 0.2s; }
+    .card.d5 { animation-delay: 0.25s; } .card.d6 { animation-delay: 0.3s; }
+    .card:hover { box-shadow: var(--shadow-md); border-color: var(--border-strong); transform: translateY(-2px); }
+    .card > h2 { font-size: 16px; font-weight: 700; margin: 0 0 4px; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+    .card > h2 .num { font-size: 11px; font-weight: 700; color: var(--accent); background: var(--accent-soft); padding: 2px 8px; border-radius: 99px; letter-spacing: 0.04em; }
+    .grid { display: grid; gap: 20px; }
+    .grid.two { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+    label { display: block; font-size: 13px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+    input, select, textarea {
+      font: inherit; color: var(--text); width: 100%; padding: 11px 14px; border-radius: 10px;
+      border: 1.5px solid var(--border); background: var(--surface); outline: none; min-width: 0;
+      transition: border-color 0.2s var(--ease), box-shadow 0.2s var(--ease), background 0.2s var(--ease);
+    }
+    input:hover, select:hover, textarea:hover { border-color: var(--border-strong); }
+    input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: var(--shadow-glow); background: var(--bg-elevated); }
+    input::placeholder, textarea::placeholder { color: var(--muted); opacity: 0.7; }
+    .row { display: flex; gap: 12px; align-items: end; flex-wrap: wrap; }
     .row > * { flex: 1 1 140px; }
-    .row > button { flex: 0 0 auto; }
+    .row > button, .row > .btn { flex: 0 0 auto; }
     .muted { color: var(--muted); }
-    .mono { font-family: var(--mono); }
-    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0; }
-    .stat { background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px; }
-    .stat .k { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
-    .stat .v { font-family: var(--mono); font-size: 18px; font-weight: 700; margin-top: 2px; }
-    .stat .v.bad { color: var(--bad); }
-    .stat .v.good { color: var(--good); }
-    .pcts { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-top: 12px; }
-    .pct { text-align: center; background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px; padding: 10px 8px; }
-    .pct .k { font-size: 12px; color: var(--muted); font-weight: 600; }
-    .pct .v { font-family: var(--mono); font-size: 17px; font-weight: 700; margin-top: 2px; }
-    .pct.hot { border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); }
-    .pct.hot .v { color: var(--bad); }
-    canvas { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: 10px; background: var(--surface-2); }
-    .result-box {
-      font-family: var(--mono); font-size: 13px; padding: 12px; background: var(--surface-2);
-      border: 1px solid var(--border); border-radius: 8px; margin-top: 12px; white-space: pre-wrap;
-      word-break: break-all; max-height: 320px; overflow: auto;
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin: 16px 0; }
+    .stat {
+      background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 16px; text-align: center;
+      transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
     }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); }
-    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
-    .table-wrap { overflow-x: auto; }
-    footer { margin-top: 32px; color: var(--muted); font-size: 13px; text-align: center; }
+    .stat:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .stat .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+    .stat .v { font-family: var(--mono); font-size: 22px; font-weight: 800; margin-top: 4px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+    .stat .v.bad { color: var(--bad); } .stat .v.good { color: var(--good); }
+    .pcts { display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 10px; margin-top: 12px; }
+    .pct {
+      text-align: center; background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 12px 8px;
+      transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+    }
+    .pct:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .pct .k { font-size: 11px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; }
+    .pct .v { font-family: var(--mono); font-size: 16px; font-weight: 800; margin-top: 3px; font-variant-numeric: tabular-nums; }
+    .pct.hot { border-color: color-mix(in srgb, var(--bad) 40%, var(--border)); background: var(--bad-soft); }
+    .pct.hot .v { color: var(--bad); }
+    canvas { width: 100%; height: auto; display: block; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+    .result-box {
+      font-family: var(--mono); font-size: 13px; line-height: 1.65; padding: 16px 18px;
+      background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius);
+      margin-top: 12px; white-space: pre-wrap; word-break: break-word;
+      max-height: 320px; overflow: auto; color: var(--text-secondary); position: relative;
+    }
+    .table-wrap { overflow-x: auto; border-radius: var(--radius); border: 1px solid var(--border); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; background: var(--surface); }
+    th, td { text-align: left; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    th {
+      background: var(--surface-2); color: var(--muted); font-weight: 600;
+      font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; position: sticky; top: 0;
+    }
+    tr:last-child td { border-bottom: none; }
+    tbody tr { transition: background 0.15s var(--ease); }
+    tbody tr:hover { background: var(--surface-2); }
+    .muted { color: var(--muted); }
+    footer {
+      margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 13px; text-align: center;
+      animation: fadeUp 0.5s var(--ease) 0.4s both;
+    }
+    footer a { color: var(--text-secondary); font-weight: 600; }
+    footer a:hover { color: var(--accent); }
     code { font-family: var(--mono); font-size: 0.92em; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
-    .presets { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
-    .presets button { font-size: 13px; padding: 5px 10px; font-weight: 500; }
+    .presets { display: flex; gap: 7px; flex-wrap: wrap; margin: 10px 0; }
+    .presets button {
+      font-size: 13px; padding: 6px 13px; font-weight: 500; border-radius: 99px;
+      background: var(--surface-2); border: 1px solid var(--border); color: var(--text-secondary);
+    }
+    .presets button:hover { background: var(--accent-soft); border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }
+    .presets button:active { transform: scale(0.96); }
     .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--muted); margin-top: 8px; }
     .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeDown { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: translateY(0); } }
+    @media (max-width: 480px) {
+      header.top h1 { font-size: 19px; }
+      .stat .v { font-size: 18px; }
+      .card { padding: 18px; }
+      .stats { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+      .pcts { grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <header class="top">
-      <div>
-        <h1>loadgun — HTTP Load Testing</h1>
-        <p>Configure RPS, duration and concurrency; the simulator runs a worker-pool model and reports nearest-rank percentiles on a canvas histogram.</p>
+      <div class="brand">
+        <div class="icon">LG</div>
+        <div>
+          <h1>loadgun</h1>
+          <p class="sub">HTTP load testing — configure RPS, duration and concurrency; the simulator reports nearest-rank percentiles on a live histogram.</p>
+        </div>
       </div>
-      <a href="https://github.com/umer-78/loadgun">Source on GitHub</a>
+      <div class="actions">
+        <a class="btn" href="https://github.com/umer-78/loadgun">GitHub</a>
+      </div>
     </header>
 
-    <section class="card">
+    <section class="card d1">
       <h2>Configure the run</h2>
       <div class="row">
         <div>
@@ -151,7 +267,7 @@
       </p>
     </section>
 
-    <section class="card" aria-live="polite">
+    <section class="card d2" aria-live="polite">
       <h2>Results</h2>
       <div class="stats">
         <div class="stat"><div class="k">Requests</div><div class="v" id="statTotal">—</div></div>
@@ -183,17 +299,17 @@
     </section>
 
     <div class="grid two">
-      <section class="card">
-        <h2>Four decisions that decide whether the numbers mean anything</h2>
+      <section class="card d3">
+        <h2>Four decisions that make the numbers meaningful</h2>
         <ul class="muted" style="margin:0;padding-left:20px">
           <li><b>Percentiles are nearest-rank, not interpolated.</b> p95 is a latency a request actually experienced.</li>
           <li><b>A failed request has no latency.</b> Timeouts stay out of the distribution.</li>
           <li><b>Duration stops new requests; it does not cut in-flight ones.</b></li>
-          <li><b>The body is drained before the clock stops.</b> keepalive measures the server, not the handshake.</li>
+          <li><b>The body is drained before the clock stops.</b> Keep-alive measures the server, not the handshake.</li>
         </ul>
       </section>
 
-      <section class="card">
+      <section class="card d4">
         <h2>Status codes</h2>
         <div class="table-wrap">
           <table>
