@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>loadgun — HTTP Load Testing Demo</title>
-  <meta name="description" content="Interactive demo of loadgun: configure a load test, simulate responses, and see nearest-rank percentiles plus a latency histogram.">
+  <meta name="description" content="Configure a load test, simulate responses, and see nearest-rank percentiles plus a live latency histogram.">
   <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)">
   <meta name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%232563eb'/><stop offset='1' stop-color='%237c3aed'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><text x='16' y='22' font-size='14' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'>LG</text></svg>">
@@ -261,7 +261,7 @@
         <button type="button" data-run='{"requests":1000,"concurrency":50,"rate":0,"baseMs":3,"failPct":0}'>high concurrency 50</button>
       </div>
       <p class="muted" style="font-size:13px;margin:10px 0 0">
-        This page <b>simulates</b> a target: latency ≈ base + queueing under concurrency + noise.
+        <b>Simulates</b> a target: latency ≈ base + queueing under concurrency + noise.
         Percentiles use the same <b>nearest-rank</b> rule as the Go code — a p95 is a latency that actually happened.
         Failures (timeouts / non-2xx) are excluded from the latency distribution, matching <code>internal/report</code>.
       </p>
