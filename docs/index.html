@@ -304,7 +304,7 @@
       <p class="muted" style="font-size:13px;margin:10px 0 0">
         <b>Simulates</b> a target: latency ≈ base + queueing under concurrency + noise.
         Percentiles use the same <b>nearest-rank</b> rule as the Go code — a p95 is a latency that actually happened.
-        Failures (timeouts / non-2xx) are excluded from the latency distribution, matching <code>internal/report</code>.
+        Requests that error before a response (timeouts) are left out of the latency distribution; a 5xx still has a latency and stays in, matching <code>internal/report</code>.
       </p>
     </section>
 
@@ -344,7 +344,7 @@
         <h2>Four decisions that make the numbers meaningful</h2>
         <ul class="muted" style="margin:0;padding-left:20px">
           <li><b>Percentiles are nearest-rank, not interpolated.</b> p95 is a latency a request actually experienced.</li>
-          <li><b>A failed request has no latency.</b> Timeouts stay out of the distribution.</li>
+          <li><b>A request that errors has no latency.</b> Timeouts stay out of the distribution; a 503 is still measured.</li>
           <li><b>Duration stops new requests; it does not cut in-flight ones.</b></li>
           <li><b>The body is drained before the clock stops.</b> Keep-alive measures the server, not the handshake.</li>
         </ul>
@@ -469,22 +469,24 @@
         if (rng() < 0.02) lat *= 3 + rng() * 5;
         lat = Math.max(0.1, lat);
 
+        // A 5xx is a failure, but the server did answer, so it has a latency and
+        // stays in the distribution — the same rule as internal/report, which only
+        // leaves out requests that errored before a response (timeouts, refused).
+        latencies.push(lat);
         if (isFail) {
           failed++;
-          // status 503 mostly, some 500; still has a latency but excluded from distribution
           const code = rng() < 0.7 ? 503 : 500;
           statuses[code] = (statuses[code] || 0) + 1;
         } else {
           succeeded++;
           statuses[200] = (statuses[200] || 0) + 1;
-          latencies.push(lat);
           bytes += 200 + Math.floor(rng() * 800);
         }
       }
 
       // Elapsed: max of (total/offered serialised by rate, latencies under concurrency)
       const byRate = rate > 0 ? total / rate : 0;
-      const byWorkers = (latencies.reduce((a, b) => a + b, 0) + failed * base) / 1000 / c;
+      const byWorkers = latencies.reduce((a, b) => a + b, 0) / 1000 / c;
       const elapsed = Math.max(0.001, Math.max(byRate, byWorkers));
 
       const sorted = latencies.slice().sort((a, b) => a - b);

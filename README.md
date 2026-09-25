@@ -125,7 +125,7 @@ request actually experienced, not the average of two that never happened. Ten
 requests from 10ms to 100ms give p50 = 50ms and p95 = 100ms, and there is a test
 that says so in exactly those numbers.
 
-**A failed request has no latency.** A request that times out after 10 seconds is
+**A request that errors has no latency.** A request that times out after 10 seconds is
 counted as a failure — and left out of the latency distribution entirely. Folding
 it in would put a 10-second spike in the tail and hide how fast the responses
 that *arrived* actually were.
