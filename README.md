@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/umer-78/loadgun/actions/workflows/ci.yml/badge.svg)](https://github.com/umer-78/loadgun/actions/workflows/ci.yml)
 
+[![loadgun: the live demo](.github/preview.jpg)](https://umer-78.github.io/loadgun/)
+
 **Live demo:** https://umer-78.github.io/loadgun/
 
 An HTTP load testing tool in Go. Point it at a URL, and it tells you how fast the
