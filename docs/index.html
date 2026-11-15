@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en" data-scene="security" data-fx-compact="">
+<html lang="en" data-scene="loadgun" data-fx-compact="" data-look="saira" data-hero="band" data-card="raised" data-motif="topo" data-backdrop="stars">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,8 +10,8 @@
   <meta property="og:url" content="https://umer-78.github.io/loadgun/">
   <meta name="twitter:card" content="summary">
   <meta name="description" content="Configure a load test, simulate responses, and see nearest-rank percentiles plus a live latency histogram.">
-  <meta name="theme-color" content="#2563eb" media="(prefers-color-scheme: light)">
-  <meta name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)">
+  <meta name="theme-color" content="#ae6115" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#170d06" media="(prefers-color-scheme: dark)">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%232563eb'/><stop offset='1' stop-color='%237c3aed'/></linearGradient></defs><rect width='32' height='32' rx='8' fill='url(%23g)'/><text x='16' y='22' font-size='14' text-anchor='middle' fill='white' font-family='system-ui' font-weight='bold'>LG</text></svg>">
   <style>
     :root {
@@ -244,7 +244,7 @@ html.mk-pre header.top, html.mk-pre main section, html.mk-pre section.card, html
 <script>(function(){try{if(!(matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches)){var r=document.documentElement;r.classList.add('mk-pre');setTimeout(function(){r.classList.remove('mk-pre')},2200)}}catch(e){}})();</script>
 <!-- /motion-kit:head -->
 <!-- fx:v2 -->
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;800&family=Fira+Code:wght@400;600&display=swap" id="fx-fonts">
 <link rel="stylesheet" href="fx.css">
 <style>:root { --fx-2: #06b6d4; --fx-3: #f59e0b; }</style>
 <!-- /fx:v2 -->
@@ -258,6 +258,11 @@ html.mk-pre header.top, html.mk-pre main section, html.mk-pre section.card, html
 <meta property="og:image:alt" content="loadgun — HTTP Load Testing Demo: the live demo">
 <meta name="twitter:card" content="summary_large_image">
 <!-- /og -->
+<style id="fx-look">:root[data-look] { --font: 'Saira', system-ui, -apple-system, "Segoe UI", sans-serif; --fx-display: 'Saira', system-ui, sans-serif; --mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --fx-display-weight: 800; --fx-tracking: -0.02em; --fx-title-case: none; --fx-radius: 10px; --fx-hero-radius: 20px; --fx-control-radius: 8px; --accent: #ae6115; --accent-hover: #985103; --accent-soft: #ffeee3; --accent-glow: rgb(174 97 21 / 0.16); --on-accent: #ffffff; --fx-2: #159b86; --fx-3: #de871d; --bg: #fff8f2; --bg-elevated: #fffdfc; --surface: #fffefd; --surface-2: #fbf1ea; --surface-3: #f4e9e1; --border: #e8dbd3; --border-strong: #cfc1b8; --line: #e8dbd3; }
+@media (prefers-color-scheme: dark) { :root[data-look]:not([data-theme="light"]) { --accent: #ec820f; --accent-hover: #fe973d; --accent-soft: rgb(236 130 15 / 0.14); --accent-glow: rgb(236 130 15 / 0.2); --on-accent: #1b0e05; --fx-2: #00cdb1; --fx-3: #fca954; --bg: #170d06; --bg-elevated: #1e140c; --surface: #22170e; --surface-2: #2b1f16; --surface-3: #352820; --border: #382e26; --border-strong: #4b4038; --line: #382e26; } }
+:root[data-look][data-theme="dark"] { --accent: #ec820f; --accent-hover: #fe973d; --accent-soft: rgb(236 130 15 / 0.14); --accent-glow: rgb(236 130 15 / 0.2); --on-accent: #1b0e05; --fx-2: #00cdb1; --fx-3: #fca954; --bg: #170d06; --bg-elevated: #1e140c; --surface: #22170e; --surface-2: #2b1f16; --surface-3: #352820; --border: #382e26; --border-strong: #4b4038; --line: #382e26; }</style>
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.min.js" data-fx>
+<link rel="modulepreload" href="fx3d.js" data-fx>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
